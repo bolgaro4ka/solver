@@ -1,0 +1,532 @@
+<!-- Equation Solver Tool (EST) -->
+<!-- https://github.com/bolgaro4ka/solver -->
+<!-- By Bolgaro4ka https://github.com/bolgaro4ka 2025 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Equation Solver Tool</title>
+  <style>
+    :root{
+      --bg:#fff; --fg:#000; --muted:#aaa; --grid:#000; --gap:8px; --pad:12px; --col:12; --row-h:12px;
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;}
+    body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);}
+
+    /* 12-col grid baseline */
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-auto-rows: var(--row-h);
+      gap: var(--gap);
+      padding: clamp(12px, 3vw, 32px);
+      position:relative;
+      /* grid background */
+      background-image: linear-gradient(to right, var(--grid) 1px, transparent 1px),
+                        linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+      background-size: calc((100% - (var(--gap) * 11)) / 12) var(--row-h), 100% var(--row-h);
+      background-position: 0 0, 0 0;
+    }
+
+    /* visible outlines on cards */
+    .card{ border:2px solid var(--fg); padding: clamp(12px, 2.2vw, 24px); background:var(--bg); }
+    .sharp{ border-radius:0 }
+
+    h1{ font-size: clamp(28px, 6vw, 64px); line-height:1; margin:0 0 8px 0; letter-spacing:-0.02em; }
+    h2{ font-size: clamp(18px, 3vw, 28px); margin:0 0 8px 0; }
+    .muted{ color:#444 }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    .title{ grid-column: 1 / -1; grid-row: span 6; display:flex; align-items:flex-end; }
+    .input{ grid-column: 1 / span 12; grid-row: span 16; }
+    .steps{ grid-column: 1 / span 12; grid-row: span 20; }
+    .about{ grid-column: 1 / span 12; grid-row: span 10; }
+
+    @media (min-width: 900px){
+      
+      .input{ grid-column: 1 / span 7; }
+      .steps{ grid-column: 8 / span 5; }
+      .about{ grid-column: 1 / span 7; }
+    }
+
+    @media (max-width: 700px){
+        .title{ grid-row: span 4 !important; }
+    }
+
+    label{ font-size: clamp(14px, 2.2vw, 22px); display:block; margin-bottom: 6px; }
+    input[type="text"], textarea{
+      width:100%;
+      font-size: clamp(18px, 4vw, 32px);
+      padding: 14px 16px;
+      border:2px solid var(--fg);
+      outline:none;
+      background:var(--bg); color:var(--fg);
+    }
+    textarea{ min-height: 180px; resize:vertical; }
+
+    .row{
+      display:grid; grid-template-columns: repeat(12, 1fr); gap:var(--gap); align-items:center; margin-top: var(--gap);
+    }
+    .row > *{ grid-column: span 12; }
+    @media (min-width: 700px){
+      .row > .col-6{ grid-column: span 6; }
+      .row > .col-4{ grid-column: span 4; }
+      .row > .col-8{ grid-column: span 8; }
+    }
+
+    button{
+      border:2px solid var(--fg);
+      background:var(--bg);
+      color:var(--fg);
+      font-size: clamp(16px, 2.6vw, 24px);
+      padding: 12px 16px;
+      cursor:pointer;
+      user-select:none;
+      letter-spacing:0.02em;
+    }
+    button:active{ transform: translateY(1px); }
+
+    .pill{ display:inline-flex; gap:8px; align-items:center; }
+    .hint{ font-size: clamp(12px, 2vw, 16px); }
+
+    .output-block{ border-top:2px solid var(--fg); padding-top:12px; margin-top:12px; }
+
+    .kbd{ border:2px solid var(--fg); padding:2px 6px; font-size:0.9em; }
+
+    .tag{ border:2px solid var(--fg); padding:4px 8px; font-size:14px; display:inline-block; margin-right:8px; }
+
+    .list{ list-style:none; padding:0; margin:0; }
+    .list li{ border-bottom:1px dashed var(--fg); padding:10px 0; }
+
+    .small{ font-size: clamp(10px, 1.8vw, 14px); color:#333 }
+  </style>
+</head>
+<body>
+  <main class="grid" id="grid">
+    <section class="title card sharp">
+      <div>
+        <h1>Equation Solver Tool</h1>
+      </div>
+    </section>
+
+    <section class="input card sharp" aria-label="input-and-controls">
+      <label for="eq">Enter equation or expression</label>
+      <input id="eq" type="text" class="mono" placeholder="e.g. 2x + 5 = 3x - 7  or  (4+5)*3" />
+      <div class="row">
+        <div class="col-6">
+          <button id="solveBtn" class="sharp">Solve / Explain</button>
+        </div>
+        <div class="col-6">
+          <button id="exportBtn" class="sharp">Export Results</button>
+        </div>
+      </div>
+      <div class="output-block" id="quick"></div>
+      <div class="hint small">
+        <span class="tag">Supported now</span>
+        Linear: <span class="mono">ax + b = cx + d</span>, Quadratic: <span class="mono">ax^2 + bx + c = 0</span>, and arithmetic expressions (no variables). Avoid parentheses in equations for now.
+      </div>
+    </section>
+
+    <section class="steps card sharp" aria-label="steps">
+      <h2>Step‑by‑Step</h2>
+      <ol id="steps" class="list"></ol>
+    </section>
+
+    <section class="about card sharp" aria-label="about">
+      <h2>How it works</h2>
+      <p>Type an equation with <span class="mono">x</span> or a pure arithmetic expression. The tool parses, reduces, and shows steps. Export your session as a <span class="mono">.txt</span> file.</p>
+      <p class="small">Tip: Press <span class="kbd">Enter</span> in the input to solve quickly.</p>
+    </section>
+  </main>
+
+
+
+  <script>
+  // --- Utility: DOM helpers
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const el = (tag, cls, text) => { const e=document.createElement(tag); if(cls) e.className=cls; if(text!==undefined) e.textContent=text; return e; };
+
+  
+  /**
+   *  Tokenizes a given mathematical expression into a list of tokens.
+   * 
+   *  This function takes a string representing a mathematical expression and breaks it down into individual tokens.
+   *  The supported tokens include numbers, the variable 'x', and the operators '+', '-', '*', '/', '^', '=', and '()'.
+   * 
+   *  Parameters:
+   *    expr (string): The mathematical expression to be tokenized.
+   * 
+   *  Returns:
+   *    array: A list of tokens, where each token is an object with a 't' property representing the token type and a 'v' property representing the token value.
+   */
+  function tokenize(expr){
+    // Supports numbers, x, ^, + - * / =
+    const tokens=[]; let i=0;
+    while(i<expr.length){
+      const c=expr[i];
+      if(c===' ') { i++; continue; }
+      if(/[0-9.]/.test(c)){
+        let num=c; i++;
+        while(i<expr.length && /[0-9.]/.test(expr[i])){ num+=expr[i++]; }
+        tokens.push({t:'num', v:parseFloat(num)});
+        continue;
+      }
+      if(c==='x' || c==='X') { tokens.push({t:'var', v:'x'}); i++; continue; }
+      if('+-*/^=()'.includes(c)) { tokens.push({t:c, v:c}); i++; continue; }
+      // skip unknowns
+      i++;
+    }
+    return tokens;
+  }
+
+  /**
+   *  Parse a simple polynomial expression into its coefficients.
+   * 
+   *  This function takes a list of tokens representing a simple polynomial expression
+   *  and returns an object with the coefficients of the quadratic equation in the form ax^2 + bx + c.
+   * 
+   *  The function supports a limited grammar, including sums of terms like k, kx, and kx^2.
+   *  It does not support more complex expressions or equations.
+   * 
+   *  Parameters:
+   *    tokens (array): A list of tokens representing the polynomial expression.
+   * 
+   *  Returns:
+   *    object: An object with the coefficients a, b, and c of the quadratic equation.
+   */
+  function parseSimplePolynomial(tokens){
+    // Reduce an expression into coefficients for ax^2 + bx + c (limited grammar: sums of terms like k, kx, kx^2)
+    let a=0,b=0,c=0; // x^2, x, const
+    let sign=1; // handling + and - at top level
+    let i=0;
+
+    /**
+     *  Reads a number from the tokens array.
+     *  
+     *  This function checks if the current token is a number and returns its value.
+     *  If the token is not a number, it returns null.
+     *  
+     *  Parameters:
+     *    None
+     *  
+     *  Returns:
+     *    number | null: The value of the number token, or null if the token is not a number.
+     */
+    function readNumber(){ 
+        if(tokens[i] && tokens[i].t==='num'){ return tokens[i++].v; } return null; 
+    }
+
+    while(i<tokens.length){
+      let coef = 1;
+      let deg = 0;
+
+      // optional sign
+      if(tokens[i] && tokens[i].t==='+'){ sign=1; i++; }
+      else if(tokens[i] && tokens[i].t==='-'){ sign=-1; i++; }
+
+      // number * optional var^exp
+      if(tokens[i] && tokens[i].t==='num'){
+        coef = tokens[i++].v;
+        if(tokens[i] && tokens[i].t==='*') i++; // allow explicit *
+        if(tokens[i] && tokens[i].t==='var'){
+          i++; // consume x
+          deg = 1;
+          if(tokens[i] && tokens[i].t==='^'){ i++; const pow = readNumber(); if(pow!==null) deg = pow; }
+        } else {
+          deg = 0; // pure constant
+        }
+      } else if(tokens[i] && tokens[i].t==='var'){
+        i++; deg = 1;
+        if(tokens[i] && tokens[i].t==='^'){ i++; const pow=readNumber(); if(pow!==null) deg=pow; }
+      } else if(tokens[i] && tokens[i].t===')'){
+        // not supporting parentheses in this simple reducer
+        i++; continue;
+      } else if(tokens[i] && tokens[i].t==='('){
+        // skip a simple (num) group if present
+        i++; if(tokens[i] && tokens[i].t==='num'){ coef = tokens[i++].v; } if(tokens[i] && tokens[i].t===')') i++;
+        deg=0;
+      } else {
+        // unknown token -> skip
+        i++;
+        continue;
+      }
+
+      const term = sign * coef;
+      if(deg===2) a += term;
+      else if(deg===1) b += term;
+      else c += term;
+
+      // reset sign for next term if next is + or -
+      if(tokens[i] && (tokens[i].t==='+' || tokens[i].t==='-')){
+        // handled at top
+      }
+    }
+    return {a,b,c};
+  }
+
+  /**
+   *  Simplifies a side of an equation by tokenizing it and then parsing it into a simple polynomial.
+   * 
+   *  Parameters:
+   *    side (string): The side of the equation to be simplified.
+   * 
+   *  Returns:
+   *    object: An object with the coefficients of the simplified polynomial.
+   */
+  function simplifySide(side){
+    const tokens = tokenize(side);
+    return parseSimplePolynomial(tokens);
+  }
+
+  /**
+   *  Solves a mathematical equation or expression and returns the result along with step-by-step explanations.
+   * 
+   *  This function takes a string representing a mathematical equation or expression as input, 
+   *  parses it, and then solves it. It supports arithmetic expressions, linear equations, 
+   *  and quadratic equations. The function returns an object containing the type of the 
+   *  equation or expression, the result, and an array of step-by-step explanations.
+   * 
+   *  Parameters:
+   *    input (string): The mathematical equation or expression to be solved.
+   * 
+   *  Returns:
+   *    object: An object containing the type of the equation or expression, the result, 
+   *            and an array of step-by-step explanations.
+   */
+  function solveEquation(input){
+    const steps=[];
+    const eqIndex = input.indexOf('=');
+
+    if(eqIndex<0){
+      // arithmetic expression only
+      try{
+        // Only allow numbers and operators to avoid code injection
+        const safe = input.replace(/[^0-9+\-*/().^\s]/g, '');
+        // Implement ^ as ** for JS eval
+        const jsExpr = safe.replace(/\^/g,'**');
+        const value = Function(`"use strict"; return (${jsExpr});`)();
+        steps.push(`Evaluate expression: ${input}`);
+        steps.push(`Result = ${value}`);
+        return { type:'expression', result:value, steps };
+      }catch(e){
+        return { type:'error', error:'Could not evaluate expression. Please check syntax.' };
+      }
+    }
+
+    // Equation path
+    const L = input.slice(0, eqIndex);
+    const R = input.slice(eqIndex+1);
+
+    const left = simplifySide(L);
+    const right = simplifySide(R);
+
+    // Move all to left: (aL-aR)x^2 + (bL-bR)x + (cL-cR) = 0
+    const A = left.a - right.a;
+    const B = left.b - right.b;
+    const C = left.c - right.c;
+
+    const formattedLR = `${fmtPoly(left)} = ${fmtPoly(right)}`;
+    steps.push(`Collect like terms on each side: ${formattedLR}`);
+    steps.push(`Bring all terms to the left: ${fmtABC(A,B,C)} = 0`);
+
+    if(Math.abs(A) > 1e-12){
+      // Quadratic
+      const disc = B*B - 4*A*C;
+      steps.push(`Quadratic detected with a=${A}, b=${B}, c=${C}`);
+      steps.push(`Compute discriminant Δ = b² - 4ac = ${B}² - 4·${A}·${C} = ${disc}`);
+      if(disc < 0){
+        steps.push('Δ < 0 → no real roots.');
+        return { type:'quadratic', a:A,b:B,c:C, result:null, steps };
+      } else {
+        const sqrtD = Math.sqrt(disc);
+        const x1 = (-B + sqrtD) / (2*A);
+        const x2 = (-B - sqrtD) / (2*A);
+        steps.push(`Apply quadratic formula: x = (-b ± √Δ) / (2a)`);
+        steps.push(`x₁ = ${num(-B)} + √${num(disc)} over ${num(2*A)} → ${x1}`);
+        steps.push(`x₂ = ${num(-B)} - √${num(disc)} over ${num(2*A)} → ${x2}`);
+        return { type:'quadratic', a:A,b:B,c:C, result:[x1,x2], steps };
+      }
+    } else if(Math.abs(B) > 1e-12){
+      // Linear
+      steps.push(`Linear equation with b=${B}, c=${C}`);
+      steps.push(`Isolate x: ${B}x = ${-C}`);
+      const x = (-C)/B;
+      steps.push(`Divide both sides by ${B}: x = ${x}`);
+      return { type:'linear', a:A,b:B,c:C, result:x, steps };
+    } else {
+      // Constant = 0
+      if(Math.abs(C) < 1e-12){
+        steps.push('Identity 0 = 0 → infinitely many solutions.');
+        return { type:'identity', steps, result:'∞ solutions' };
+      } else {
+        steps.push('Contradiction: constant ≠ 0 → no solution.');
+        return { type:'contradiction', steps, result:'no solution' };
+      }
+    }
+  }
+
+  /**
+   *  Formats a polynomial expression from its coefficients.
+   * 
+   *  This function takes an object with coefficients a, b, and c representing a quadratic equation in the form ax^2 + bx + c.
+   *  It returns a string representing the formatted polynomial expression.
+   * 
+   *  Parameters:
+   *    p (object): An object with coefficients a, b, and c of the quadratic equation.
+   * 
+   *  Returns:
+   *    string: A string representing the formatted polynomial expression.
+   */
+  function fmtPoly(p){
+    const parts=[];
+    if(p.a) parts.push(`${num(p.a)}x^2`);
+    if(p.b) parts.push(`${num(p.b)}x`);
+    if(p.c || parts.length===0) parts.push(`${num(p.c||0)}`);
+    return parts.join(' + ').replace(/\+ -/g,'- ');
+  }
+  
+  /**
+   *  Formats a polynomial expression from its coefficients.
+   * 
+   *  This function takes the coefficients a, b, and c of a quadratic equation in the form ax^2 + bx + c.
+   *  It returns a string representing the formatted polynomial expression.
+   * 
+   *  Parameters:
+   *    a (number): The coefficient of the quadratic term.
+   *    b (number): The coefficient of the linear term.
+   *    c (number): The constant term.
+   * 
+   *  Returns:
+   *    string: A string representing the formatted polynomial expression.
+   */
+  function fmtABC(a,b,c){ 
+    return fmtPoly({a,b,c}); 
+    }
+  /**
+   *  Formats a number to a string with a maximum of 8 decimal places.
+   *  
+   *  This function takes a number as input and returns its string representation.
+   *  If the input is not a number or is infinite, it returns the input as a string.
+   *  Otherwise, it rounds the number to 8 decimal places and returns the result.
+   *  
+   *  Parameters:
+   *    n (number): The number to be formatted.
+   *  
+   *  Returns:
+   *    string: The formatted string representation of the number.
+   */
+  function num(n){
+    if(typeof n!=="number" || !isFinite(n)) return String(n);
+    const s = Math.abs(n) < 1e-9 ? 0 : n;
+    return Number(s.toFixed(8)).toString();
+  }
+
+  // --- UI wiring
+  const stepsEl = document.getElementById('steps');
+  const quick = document.getElementById('quick');
+  const inputEl = document.getElementById('eq');
+
+  /**
+   *  Renders the result of an equation or expression, including any errors, 
+   *  and updates the UI accordingly. It also stores the result for potential export.
+   * 
+   *  Parameters:
+   *    result (object): An object containing the result of the equation or expression, 
+   *                     including its type, value or solution, and step-by-step explanations.
+   * 
+   *  Returns:
+   *    None
+   */
+  function render(result){
+    stepsEl.innerHTML='';
+    if(result.type==='error'){
+      quick.innerHTML = `<div class="pill">❌ <span>${result.error}</span></div>`;
+      return;
+    }
+    // Quick summary
+    let summary = '';
+    if(result.type==='expression') summary = `<strong>Value:</strong> <span class="mono">${result.result}</span>`;
+    if(result.type==='linear') summary = `<strong>Solution:</strong> <span class="mono">x = ${num(result.result)}</span>`;
+    if(result.type==='quadratic'){
+      if(result.result){
+        summary = `<strong>Solutions:</strong> <span class="mono">x₁ = ${num(result.result[0])}, x₂ = ${num(result.result[1])}</span>`;
+      } else {
+        summary = `<strong>No real solutions.</strong>`;
+      }
+    }
+    if(result.type==='identity') summary = `<strong>Infinitely many solutions.</strong>`;
+    if(result.type==='contradiction') summary = `<strong>No solution.</strong>`;
+
+    quick.innerHTML = summary;
+
+    // Steps list
+    (result.steps||[]).forEach((s,i)=>{
+      const li = el('li', null, `${i+1}. ${s}`);
+      stepsEl.appendChild(li);
+    });
+
+    // store last for export
+    window.__lastRun = { input: inputEl.value, ...result, timestamp: new Date().toISOString() };
+  }
+
+  /**
+   *  Exports the result of the equation solver as a text file.
+   * 
+   *  This function takes no parameters and returns no value. It uses the last run data stored in the window object to generate a text file containing the input, result, steps, and a timestamp. The file is then downloaded by the user.
+   * 
+   *  Parameters:
+   *    None
+   * 
+   *  Returns:
+   *    None
+   */
+  function exportResults(){
+    const data = window.__lastRun || { input: inputEl.value, steps:["No run yet"], result:null, timestamp:new Date().toISOString() };
+    const lines = [];
+    lines.push(`# Equation Solver Tool`);
+    lines.push(`When: ${new Date(data.timestamp).toLocaleString()}`);
+    lines.push("");
+    lines.push(`Input: ${data.input}`);
+    lines.push("");
+    if(data.type==='expression') lines.push(`Result: ${data.result}`);
+    if(data.type==='linear') lines.push(`Solution: x = ${num(data.result)}`);
+    if(data.type==='quadratic'){
+      if(data.result) lines.push(`Solutions: x1 = ${num(data.result[0])}, x2 = ${num(data.result[1])}`); else lines.push('No real solutions');
+    }
+    if(data.type==='identity') lines.push('Infinitely many solutions');
+    if(data.type==='contradiction') lines.push('No solution');
+    lines.push("");
+    lines.push(`Steps:`);
+    (data.steps||[]).forEach((s,i)=> lines.push(`${i+1}. ${s}`));
+    lines.push("");
+    lines.push(`— Exported from Equation Solver Tool`);
+
+    const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `equation-solver-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
+  document.getElementById('solveBtn').addEventListener('click', ()=>{
+    const v = inputEl.value.trim();
+    if(!v){ quick.innerHTML = '<span class="muted">Enter something to solve…</span>'; stepsEl.innerHTML=''; return; }
+    render(solveEquation(v));
+  });
+
+  inputEl.addEventListener('keydown', (e)=>{
+    if(e.key==='Enter') { e.preventDefault(); $('#solveBtn').click(); }
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', exportResults);
+
+  inputEl.value = '2x + 5 = 3x - 7';
+  render(solveEquation(inputEl.value));
+  </script>
+</body>
+</html>
